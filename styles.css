@@ -2330,3 +2330,130 @@ a { color: inherit; text-decoration: none; }
 .cp-accordion-item:hover { color: var(--purple-2); }
 .cp-accordion-label { flex: 1; }
 .cp-accordion-item svg { width: 16px; height: 16px; color: var(--muted); flex: 0 0 auto; }
+
+/* ======================= EXPRESSION EDITOR PAGE ======================= */
+
+/* Modes section header row */
+.ee-modes { display: flex; flex-direction: column; gap: 10px; }
+.ee-modes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ee-modes-actions { display: flex; align-items: center; gap: 6px; }
+
+/* adv. and Clear buttons */
+.ee-adv-btn,
+.ee-clear-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: var(--fs-sm); font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.ee-adv-btn svg,
+.ee-clear-btn svg { width: 13px; height: 13px; }
+.ee-adv-btn:hover,
+.ee-clear-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.ee-adv-btn.active { background: var(--panel-3); color: var(--purple-2); border-color: var(--purple); }
+
+/* Head / Eye / Mouth tabs */
+.ee-tabs {
+  display: flex;
+  background: var(--panel-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  gap: 2px;
+}
+.ee-tab {
+  flex: 1;
+  height: 30px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.ee-tab:hover { color: var(--text); }
+.ee-tab.active { background: var(--brand-grad); color: #fff; }
+
+/* Panes */
+.ee-pane[hidden] { display: none; }
+.ee-pane { display: flex; flex-direction: column; gap: 14px; }
+
+/* Individual control group */
+.ee-control-group { display: flex; flex-direction: column; gap: 7px; }
+.ee-control-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Two-button pair (Up/Down, Left/Right, Open/Closed) */
+.ee-btn-pair { display: flex; gap: 8px; }
+.ee-btn {
+  flex: 1;
+  height: 36px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base); font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.ee-btn:hover { color: var(--text); border-color: var(--border-hover); background: var(--panel-3); }
+.ee-btn.active { background: var(--panel-3); color: var(--text); border-color: var(--purple); }
+
+/* Full-width column buttons (Mouth pane) */
+.ee-btn-full-col { display: flex; flex-direction: column; gap: 8px; }
+.ee-btn-full {
+  width: 100%;
+  height: 40px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base); font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.ee-btn-full:hover { color: var(--text); border-color: var(--border-hover); background: var(--panel-3); }
+.ee-btn-full.active { background: var(--panel-3); color: var(--text); border-color: var(--purple); }
+
+/* Slider row (adv. mode) */
+.ee-slider-row { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ee-slider-val { font-size: var(--fs-sm); color: var(--muted); }
+.ee-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--panel-3);
+  outline: none;
+  cursor: pointer;
+}
+.ee-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--purple-2);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(124,92,255,.3);
+}
+.ee-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--purple-2);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+}
