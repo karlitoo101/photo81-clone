@@ -29,20 +29,8 @@
         <span class="brand-name">photo <strong>81</strong></span>
       </div>
 
-      <!-- Fixed top: title + reset -->
-      <div class="tool-head">
-        <span class="tool-title">
-          Expression Editor
-          <span class="info-dot" data-tooltip="Adjust facial expressions">?</span>
-        </span>
-        <button class="reset-btn" id="eeResetBtn">
-          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.5 4M20 5v4h-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Reset
-        </button>
-      </div>
-
-      <!-- Scrollable panel body -->
-      <div class="tool-scroll fs-scroll">
+      <!-- Fixed: source image, toggles, resolution, modes header -->
+      <div class="tool-options">
 
         <!-- Source Image -->
         <div class="field-group">
@@ -83,18 +71,16 @@
           </div>
         </div>
 
-        <!-- Modes -->
+        <!-- Modes header: label + adv/Clear + tabs (all fixed) -->
         <div class="ee-modes">
           <div class="ee-modes-head">
             <span class="field-title">Modes <span class="info-dot" data-tooltip="Choose which facial feature to adjust">?</span></span>
             <div class="ee-modes-actions">
-              <button class="ee-adv-btn" id="eeAdvBtn" aria-pressed="false">
+              <button class="ee-adv-btn" id="eeAdvBtn" aria-pressed="false" aria-label="Advanced mode" data-tooltip="Advanced sliders">
                 <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="17" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-                adv.
               </button>
-              <button class="ee-clear-btn" id="eeClearBtn">
+              <button class="ee-clear-btn" id="eeClearBtn" aria-label="Clear" data-tooltip="Clear all controls">
                 <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.5 4M20 5v4h-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Clear
               </button>
             </div>
           </div>
@@ -105,6 +91,12 @@
             <button class="ee-tab" data-tab="eye" role="tab" aria-selected="false">Eye</button>
             <button class="ee-tab" data-tab="mouth" role="tab" aria-selected="false">Mouth</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Scrollable: only the mode panes -->
+      <div class="tool-scroll fs-scroll">
+        <div class="ee-panes">
 
           <!-- HEAD pane -->
           <div class="ee-pane" data-pane="head">
@@ -210,6 +202,14 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Pinned to the panel bottom, always visible -->
+      <div class="tool-footer">
+        <button class="reset-btn panel-reset" id="eeResetBtn">
+          <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.5 4M20 5v4h-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Reset
+        </button>
       </div>
     </aside>
 
