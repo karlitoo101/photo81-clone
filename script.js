@@ -463,8 +463,19 @@ function addPhoto(src) {
   refreshEmptyPlaceholder();
 }
 
+// Where a picked image is delivered. Defaults to the Image Prompt upload slots,
+// but callers (e.g. Face Swap drop zones) can override it before opening the modal.
+let uploadDeliver = (src) => { if (typeof addPhoto === "function") addPhoto(src); };
+function deliverUploadedImage(src) {
+  try { uploadDeliver(src); } finally {
+    // reset to the default after each delivery
+    uploadDeliver = (s) => { if (typeof addPhoto === "function") addPhoto(s); };
+  }
+}
+
 // Modal open/close
-function openUploadModal() {
+function openUploadModal(deliver) {
+  if (typeof deliver === "function") uploadDeliver = deliver;
   if (uploadModal) {
     uploadModal.classList.add("open");
     closeAllMenus(null);
@@ -514,7 +525,7 @@ function addSwatchPhoto(pair) {
   g.addColorStop(1, pair[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 240, 240);
-  addPhoto(c.toDataURL());
+  deliverUploadedImage(c.toDataURL());
 }
 
 // Local Upload opens the real file picker
@@ -522,7 +533,7 @@ if (umLocal && umLocalInput) {
   umLocal.addEventListener("click", () => umLocalInput.click());
   umLocalInput.addEventListener("change", () => {
     Array.from(umLocalInput.files || []).forEach((file) => {
-      if (file.type.startsWith("image/")) addPhoto(URL.createObjectURL(file));
+      if (file.type.startsWith("image/")) deliverUploadedImage(URL.createObjectURL(file));
     });
     umLocalInput.value = "";
     closeUploadModal();
@@ -843,13 +854,22 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHisto
     }
   });
 
-  // Fullscreen: expand the preview image
-  if (fullscreenBtn) fullscreenBtn.addEventListener("click", () => {
-    if (!hasImage()) return;
-    const target = canvas || img;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (target.requestFullscreen) target.requestFullscreen();
-  });
+  // Fullscreen: open the selected image in an in-app lightbox modal
+  const lightbox = document.getElementById("lightbox");
+  const lightboxImg = document.getElementById("lightboxImg");
+  const lightboxClose = document.getElementById("lightboxClose");
+
+  function openLightbox() {
+    if (!hasImage() || !lightbox) return;
+    lightboxImg.src = img.src;
+    lightbox.classList.add("open");
+  }
+  function closeLightbox() { if (lightbox) lightbox.classList.remove("open"); }
+
+  if (fullscreenBtn) fullscreenBtn.addEventListener("click", openLightbox);
+  if (lightboxClose) lightboxClose.addEventListener("click", closeLightbox);
+  if (lightbox) lightbox.addEventListener("click", (e) => { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
 
   // Crop: toggle the crop overlay on the selected image
   if (cropBtn) cropBtn.addEventListener("click", () => {
@@ -897,4 +917,282 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHisto
       setCanvasToolsEnabled(false);
     });
   }
+})();
+
+// ======================= FACE SWAP PAGE =======================
+(() => {
+  const sourceDrop = document.getElementById("fsSource");
+  const targetDrop = document.getElementById("fsTarget");
+  if (!sourceDrop || !targetDrop) return;   // not on the faceswap page
+
+  const swapBtn = document.getElementById("fsSwap");
+  const generateBtn = document.getElementById("fsGenerate");
+  const autoImport = document.getElementById("fsAutoImport");
+  const canvasEmpty = document.getElementById("canvasEmpty");
+
+  // Independent state for each slot
+  const state = { source: null, target: null };
+
+  function validImage(file) { return file && file.type.startsWith("image/"); }
+
+  function refreshControls() {
+    const both = !!(state.source && state.target);
+    if (swapBtn) swapBtn.disabled = !both;
+    if (generateBtn) generateBtn.disabled = !both;
+  }
+
+  function renderDrop(drop, src) {
+    const prompt = drop.querySelector(".fs-drop-prompt");
+    if (prompt) prompt.style.display = src ? "none" : "";
+    let img = drop.querySelector(".fs-preview");
+    let rm = drop.querySelector(".fs-remove");
+    if (src) {
+      if (!img) {
+        img = document.createElement("img");
+        img.className = "fs-preview";
+        img.alt = "Uploaded image";
+        drop.appendChild(img);
+      }
+      img.src = src;
+      drop.classList.add("filled");
+      if (!rm) {
+        rm = document.createElement("button");
+        rm.className = "fs-remove";
+        rm.type = "button";
+        rm.setAttribute("aria-label", "Remove image");
+        rm.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        rm.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const slot = drop === sourceDrop ? "source" : "target";
+          state[slot] = null;
+          clearDrop(drop);
+          refreshControls();
+        });
+        drop.appendChild(rm);
+      }
+    }
+  }
+
+  function clearDrop(drop) {
+    const img = drop.querySelector(".fs-preview");
+    const rm = drop.querySelector(".fs-remove");
+    const prompt = drop.querySelector(".fs-drop-prompt");
+    const input = drop.querySelector(".fs-input");
+    if (img) img.remove();
+    if (rm) rm.remove();
+    if (prompt) prompt.style.display = "";
+    if (input) input.value = "";
+    drop.classList.remove("filled");
+  }
+
+  function setSlotSrc(drop, slot, src) {
+    state[slot] = { src };
+    renderDrop(drop, src);
+    refreshControls();
+  }
+  function setSlot(drop, slot, file) {
+    if (!validImage(file)) return;
+    setSlotSrc(drop, slot, URL.createObjectURL(file));
+  }
+
+  function wireDrop(drop, slot) {
+    // Click opens the shared Upload Media modal; the chosen image is routed to THIS slot
+    const open = () => {
+      if (typeof openUploadModal === "function") {
+        openUploadModal((src) => setSlotSrc(drop, slot, src));
+      }
+    };
+    drop.addEventListener("click", (e) => {
+      if (e.target.closest(".fs-remove")) return;
+      open();
+    });
+    drop.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+    // Drag-and-drop still works directly onto the zone
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("dragover"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("dragover"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("dragover");
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (validImage(file)) setSlot(drop, slot, file);
+    });
+  }
+
+  wireDrop(sourceDrop, "source");
+  wireDrop(targetDrop, "target");
+
+  // Swap: exchange source and target (state + previews)
+  if (swapBtn) swapBtn.addEventListener("click", () => {
+    if (!state.source || !state.target) return;
+    const tmp = state.source; state.source = state.target; state.target = tmp;
+    clearDrop(sourceDrop); clearDrop(targetDrop);
+    renderDrop(sourceDrop, state.source.src);
+    renderDrop(targetDrop, state.target.src);
+    refreshControls();
+  });
+
+  // Auto-import toggle
+  if (autoImport) autoImport.addEventListener("click", () => autoImport.classList.toggle("active"));
+
+  // Swap faces: UI/state only — no fake result, show a pending state in the canvas
+  if (generateBtn) generateBtn.addEventListener("click", () => {
+    if (generateBtn.disabled) return;
+    if (canvasEmpty) {
+      const p = canvasEmpty.querySelector("p");
+      if (p) p.textContent = "Processing face swap… (no backend connected)";
+    }
+    // No simulated result image — real processing is left to a future backend.
+  });
+
+  refreshControls();
+})();
+
+// ======================= CHANGE POSE PAGE =======================
+(() => {
+  const cpSource = document.getElementById("cpSource");
+  if (!cpSource) return;   // guard — not on change-pose page
+
+  const cpReference  = document.getElementById("cpReference");
+  const cpAutoImport = document.getElementById("cpAutoImport");
+  const cpResetBtn   = document.getElementById("cpResetBtn");
+  const generateBtn  = document.getElementById("cpGenerate");
+  const promptInput  = document.getElementById("cpPromptInput");
+  const modeTabs     = document.querySelectorAll(".cp-mode-tab");
+  const modePanes    = document.querySelectorAll(".cp-mode-pane");
+  const presetTabs   = document.querySelectorAll(".cp-preset-tab");
+
+  let sourceLoaded = false;
+
+  function validImage(file) { return file && file.type.startsWith("image/"); }
+
+  function refreshGenerate() {
+    if (generateBtn) generateBtn.disabled = !sourceLoaded;
+  }
+
+  function renderDrop(drop, src) {
+    const prompt = drop.querySelector(".fs-drop-prompt");
+    if (prompt) prompt.style.display = src ? "none" : "";
+    let img = drop.querySelector(".fs-preview");
+    let rm  = drop.querySelector(".fs-remove");
+    if (src) {
+      if (!img) {
+        img = document.createElement("img");
+        img.className = "fs-preview";
+        img.alt = "Uploaded image";
+        drop.appendChild(img);
+      }
+      img.src = src;
+      drop.classList.add("filled");
+      if (!rm) {
+        rm = document.createElement("button");
+        rm.className = "fs-remove";
+        rm.type = "button";
+        rm.setAttribute("aria-label", "Remove image");
+        rm.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        rm.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (drop === cpSource) sourceLoaded = false;
+          clearDrop(drop);
+          refreshGenerate();
+        });
+        drop.appendChild(rm);
+      }
+    }
+  }
+
+  function clearDrop(drop) {
+    const img    = drop.querySelector(".fs-preview");
+    const rm     = drop.querySelector(".fs-remove");
+    const prompt = drop.querySelector(".fs-drop-prompt");
+    const input  = drop.querySelector(".fs-input");
+    if (img)    img.remove();
+    if (rm)     rm.remove();
+    if (prompt) prompt.style.display = "";
+    if (input)  input.value = "";
+    drop.classList.remove("filled");
+  }
+
+  function wireDrop(drop, onLoad) {
+    const open = () => {
+      if (typeof openUploadModal === "function") {
+        openUploadModal((src) => { renderDrop(drop, src); if (onLoad) onLoad(); });
+      }
+    };
+    drop.addEventListener("click", (e) => {
+      if (e.target.closest(".fs-remove")) return;
+      open();
+    });
+    drop.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+    });
+    drop.addEventListener("dragover",  (e) => { e.preventDefault(); drop.classList.add("dragover"); });
+    drop.addEventListener("dragleave", ()  => drop.classList.remove("dragover"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("dragover");
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (validImage(file)) { renderDrop(drop, URL.createObjectURL(file)); if (onLoad) onLoad(); }
+    });
+  }
+
+  wireDrop(cpSource, () => { sourceLoaded = true; refreshGenerate(); });
+  if (cpReference) wireDrop(cpReference, null);
+
+  // Mode tab switching
+  modeTabs.forEach(tab => tab.addEventListener("click", () => {
+    modeTabs.forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+    modePanes.forEach(p => { p.hidden = true; });
+    tab.classList.add("active");
+    tab.setAttribute("aria-selected", "true");
+    const pane = document.querySelector(`.cp-mode-pane[data-pane="${tab.dataset.tab}"]`);
+    if (pane) pane.hidden = false;
+  }));
+
+  // Preset sub-tab switching
+  presetTabs.forEach(tab => tab.addEventListener("click", () => {
+    presetTabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+  }));
+
+  // Auto-import toggle
+  if (cpAutoImport) cpAutoImport.addEventListener("click", () => cpAutoImport.classList.toggle("active"));
+
+  // Reset button
+  if (cpResetBtn) cpResetBtn.addEventListener("click", () => {
+    const modal = document.getElementById("resetConfirmModal");
+    if (modal) modal.classList.add("open");
+  });
+
+  // Reset confirm
+  const resetConfirmBtn = document.getElementById("resetConfirm");
+  const resetCancelBtn  = document.getElementById("resetCancel");
+  const resetModal      = document.getElementById("resetConfirmModal");
+  if (resetConfirmBtn) resetConfirmBtn.addEventListener("click", () => {
+    clearDrop(cpSource);
+    if (cpReference) clearDrop(cpReference);
+    if (promptInput) promptInput.value = "";
+    sourceLoaded = false;
+    refreshGenerate();
+    if (resetModal) resetModal.classList.remove("open");
+  });
+  if (resetCancelBtn) resetCancelBtn.addEventListener("click", () => {
+    if (resetModal) resetModal.classList.remove("open");
+  });
+  if (resetModal) resetModal.addEventListener("click", (e) => {
+    if (e.target === resetModal) resetModal.classList.remove("open");
+  });
+
+  // Generate button (UI only)
+  if (generateBtn) generateBtn.addEventListener("click", () => {
+    if (generateBtn.disabled) return;
+    const canvasEmpty = document.getElementById("canvasEmpty");
+    if (canvasEmpty) {
+      const p = canvasEmpty.querySelector("p");
+      if (p) p.textContent = "Processing pose generation… (no backend connected)";
+    }
+  });
+
+  refreshGenerate();
 })();

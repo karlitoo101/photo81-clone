@@ -386,11 +386,12 @@ a { color: inherit; text-decoration: none; }
   overflow-x: auto;
   padding-bottom: 12px;
   scrollbar-width: thin;
-  scrollbar-color: var(--panel-3) transparent;
+  scrollbar-color: #2f3a56 var(--panel-2);
 }
 .scroll-row::-webkit-scrollbar { height: 6px; }
-.scroll-row::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 10px; }
-.scroll-row::-webkit-scrollbar-track { background: var(--panel); border-radius: 10px; }
+.scroll-row::-webkit-scrollbar-thumb { background: #2f3a56; border-radius: 10px; }
+.scroll-row::-webkit-scrollbar-thumb:hover { background: #3d4e70; }
+.scroll-row::-webkit-scrollbar-track { background: var(--panel-2); border-radius: 10px; }
 
 .card { flex: 0 0 232px; }
 .thumb {
@@ -420,11 +421,11 @@ a { color: inherit; text-decoration: none; }
   border-radius: 50%;
   font-size: 13px;
 }
-.t1 { background: linear-gradient(135deg, #1a2440, #0d1120); }
-.t2 { background: linear-gradient(135deg, #2a2030, #141020); }
-.t3 { background: linear-gradient(135deg, #30232a, #15121c); }
-.t4 { background: linear-gradient(135deg, #241a30, #110d1c); }
-.t5 { background: linear-gradient(135deg, #1c2238, #0d1018); }
+.t1 { background: linear-gradient(135deg, #1e3a5f, #0d1e35); }
+.t2 { background: linear-gradient(135deg, #3d1f5e, #1e0f30); }
+.t3 { background: linear-gradient(135deg, #5e2030, #2e0f18); }
+.t4 { background: linear-gradient(135deg, #1e3d3a, #0d2020); }
+.t5 { background: linear-gradient(135deg, #3a1f4a, #4a1c35); }
 
 .card h3 { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
 .card p { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
@@ -440,10 +441,10 @@ a { color: inherit; text-decoration: none; }
   border-radius: 12px;
   background: #10131f;
 }
-.c1 { background: linear-gradient(135deg, #2b2f3a, #0e1016); }
-.c2 { background: linear-gradient(135deg, #1b2a1e, #0d140f); }
-.c3 { background: linear-gradient(135deg, #30342c, #15160f); }
-.c4 { background: linear-gradient(135deg, #26211c, #14110d); }
+.c1 { background: linear-gradient(135deg, #2a3f6f, #111a35); }
+.c2 { background: linear-gradient(135deg, #1e4a2a, #0d2212); }
+.c3 { background: linear-gradient(135deg, #4a3010, #251608); }
+.c4 { background: linear-gradient(135deg, #4a1e30, #220d18); }
 
 /* ======================= MODAL ======================= */
 .modal-overlay {
@@ -1550,6 +1551,39 @@ a { color: inherit; text-decoration: none; }
   transform: translateY(-50%) translateX(0);
 }
 
+/* Fullscreen image lightbox (in-app modal, not native browser fullscreen) */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,7,14,.9);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  z-index: 200;
+}
+.lightbox.open { display: flex; }
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.lightbox-close {
+  position: absolute;
+  top: 22px; right: 26px;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 24px; line-height: 1;
+  cursor: pointer;
+}
+.lightbox-close:hover { background: var(--panel-3); }
+
 /* Simple crop overlay toggled by the Crop tool */
 .canvas.cropping::after {
   content: "";
@@ -2124,3 +2158,175 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 760px) {
   .um-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ======================= FACE SWAP PAGE ======================= */
+.fs-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 2px;
+  position: relative;
+  z-index: 1;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-3) transparent;
+}
+.fs-scroll::-webkit-scrollbar { width: 6px; }
+.fs-scroll::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 10px; }
+
+/* Upload drop zone (source / target) */
+.fs-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 16px;
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-lg);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .15s, background .15s;
+  outline: none;
+}
+.fs-drop:hover,
+.fs-drop.dragover { border-color: var(--purple); background: var(--panel-3); }
+.fs-drop:focus-visible { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(124,92,255,.4); }
+.fs-drop svg { width: 30px; height: 30px; color: var(--muted); }
+.fs-drop-title { font-size: var(--fs-base); font-weight: 600; color: var(--text); }
+.fs-drop-sub { font-size: 11px; color: var(--muted-2); }
+.fs-drop-prompt { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+/* Filled preview */
+.fs-drop.filled { border-style: solid; padding: 0; }
+.fs-drop .fs-preview {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.fs-remove {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  background: rgba(10,13,26,.7);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+}
+.fs-remove svg { width: 15px; height: 15px; color: #fff; }
+.fs-remove:hover { background: var(--danger); border-color: var(--danger); }
+
+/* Swap button */
+.fs-swap-row { display: flex; justify-content: center; }
+.fs-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.fs-swap svg { width: 16px; height: 16px; }
+.fs-swap:not(:disabled):hover { color: var(--text); border-color: var(--border-hover); background: var(--panel-2); }
+.fs-swap:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Generate button in footer */
+.fs-generate {
+  width: 100%;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.fs-generate:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ======================= CHANGE POSE PAGE ======================= */
+
+.cp-modes { display: flex; flex-direction: column; gap: 10px; }
+
+/* Mode tabs: Prompt / Presets / Upload Pose */
+.cp-mode-tabs {
+  display: flex;
+  background: var(--panel-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  gap: 2px;
+}
+.cp-mode-tab {
+  flex: 1;
+  height: 30px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.cp-mode-tab:hover { color: var(--text); }
+.cp-mode-tab.active { background: var(--brand-grad); color: #fff; }
+
+.cp-mode-pane[hidden] { display: none; }
+.cp-mode-desc { font-size: var(--fs-sm); color: var(--muted); line-height: 1.55; padding: 2px 0; }
+
+/* Preset sub-tabs: Female / Male */
+.cp-preset-tabs {
+  display: flex;
+  background: var(--panel-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.cp-preset-tab {
+  flex: 1;
+  height: 30px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.cp-preset-tab:hover { color: var(--text); }
+.cp-preset-tab.active { background: var(--brand-grad); color: #fff; }
+
+/* Accordion rows */
+.cp-accordion { display: flex; flex-direction: column; }
+.cp-accordion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  gap: 8px;
+}
+.cp-accordion-item:hover { color: var(--purple-2); }
+.cp-accordion-label { flex: 1; }
+.cp-accordion-item svg { width: 16px; height: 16px; color: var(--muted); flex: 0 0 auto; }
