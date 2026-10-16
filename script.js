@@ -1196,3 +1196,231 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHisto
 
   refreshGenerate();
 })();
+
+
+// ======================= GRID VIEW (4-slot canvas) =======================
+(() => {
+  const toolGrid    = document.getElementById("toolGrid");
+  const toolSelect  = document.getElementById("toolSelect");
+  const canvasGrid  = document.getElementById("canvasGrid");
+  const canvasImg   = document.getElementById("canvasImage");
+  const canvasEmpty = document.getElementById("canvasEmpty");
+  if (!toolGrid || !canvasGrid) return;
+
+  let gridActive  = false;
+  let selectMode  = false;
+  const slots     = Array.from(canvasGrid.querySelectorAll(".grid-slot"));
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  function fillSlot(slot, src) {
+    let img = slot.querySelector("img");
+    if (!img) { img = document.createElement("img"); img.alt = ""; slot.insertBefore(img, slot.querySelector(".grid-slot-check")); }
+    img.src = src;
+    slot.classList.add("filled");
+    const lbl = slot.querySelector(".grid-slot-label");
+    if (lbl) lbl.hidden = true;
+  }
+
+  function clearSlot(slot) {
+    const img = slot.querySelector("img");
+    if (img) img.remove();
+    slot.classList.remove("filled", "selected");
+    const lbl = slot.querySelector(".grid-slot-label");
+    if (lbl) lbl.hidden = false;
+  }
+
+  function selectedSlots() { return slots.filter(s => s.classList.contains("selected")); }
+  function filledSlots()   { return slots.filter(s => s.classList.contains("filled")); }
+  function firstEmptySlot(){ return slots.find(s => !s.classList.contains("filled")) || null; }
+
+  // ── update toolbar state based on grid selection ──────────────────────────
+  function refreshGridTools() {
+    if (!gridActive) return;
+    const sel   = selectedSlots();
+    const count = sel.length;
+    const refBtn      = document.getElementById("toolRef");
+    const fullBtn     = document.getElementById("toolFullscreen");
+    const cropBtn     = document.getElementById("toolCrop");
+    const copyBtn     = document.getElementById("toolCopy");
+    const downloadBtn = document.getElementById("toolDownload");
+
+    // tools that work on ≥1 selection
+    [refBtn, fullBtn, copyBtn, downloadBtn].forEach(b => { if (b) b.disabled = count === 0; });
+    // crop: only when exactly 1 selected
+    if (cropBtn) cropBtn.disabled = count !== 1;
+  }
+
+  // ── select mode toggle ────────────────────────────────────────────────────
+  function enterSelectMode() {
+    selectMode = true;
+    canvasGrid.classList.add("select-mode");
+    if (toolSelect) toolSelect.classList.add("active");
+    refreshGridTools();
+  }
+  function exitSelectMode() {
+    selectMode = false;
+    canvasGrid.classList.remove("select-mode");
+    slots.forEach(s => s.classList.remove("selected"));
+    if (toolSelect) toolSelect.classList.remove("active");
+    // disable image tools (no single canvas image)
+    if (typeof setCanvasToolsEnabled === "function") setCanvasToolsEnabled(false);
+    // keep grid + select buttons enabled
+    if (toolGrid)   toolGrid.disabled   = false;
+    if (toolSelect) toolSelect.disabled = false;
+  }
+
+  if (toolSelect) {
+    toolSelect.addEventListener("click", () => {
+      if (!gridActive) return; // only works in grid mode
+      if (selectMode) exitSelectMode(); else enterSelectMode();
+    });
+  }
+
+  // ── filmstrip intercept ──────────────────────────────────────────────────
+  const origShowInCanvas = window.showInCanvas;
+  window.showInCanvas = function(src) {
+    if (gridActive) {
+      const target = firstEmptySlot();
+      if (target) { fillSlot(target, src); return; }
+    }
+    if (typeof origShowInCanvas === "function") origShowInCanvas(src);
+  };
+
+  // ── grid button toggle ────────────────────────────────────────────────────
+  toolGrid.addEventListener("click", () => {
+    gridActive = !gridActive;
+    toolGrid.classList.toggle("active", gridActive);
+
+    if (gridActive) {
+      if (canvasImg)   canvasImg.hidden   = true;
+      if (canvasEmpty) canvasEmpty.hidden = true;
+      canvasGrid.hidden = false;
+      // disable regular image tools until something is selected
+      if (typeof setCanvasToolsEnabled === "function") setCanvasToolsEnabled(false);
+      if (toolGrid)   toolGrid.disabled   = false;
+      if (toolSelect) toolSelect.disabled = false;
+    } else {
+      exitSelectMode();
+      canvasGrid.hidden = true;
+      if (canvasImg && canvasImg.getAttribute("src")) {
+        canvasImg.hidden = false;
+        if (typeof setCanvasToolsEnabled === "function") setCanvasToolsEnabled(true);
+      } else if (canvasEmpty) {
+        canvasEmpty.hidden = false;
+      }
+    }
+  });
+
+  // ── slot click ────────────────────────────────────────────────────────────
+  slots.forEach(slot => {
+    slot.addEventListener("click", () => {
+      if (!gridActive) return;
+
+      if (selectMode) {
+        // Only filled slots are selectable
+        if (!slot.classList.contains("filled")) return;
+        slot.classList.toggle("selected");
+        refreshGridTools();
+        return;
+      }
+
+      // Not in select mode → open upload modal to fill the slot
+      if (typeof openUploadModal === "function") {
+        openUploadModal(src => fillSlot(slot, src));
+      }
+    });
+
+    // Right-click to clear (not in select mode)
+    slot.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      if (selectMode) return;
+      clearSlot(slot);
+    });
+  });
+
+  // ── wire toolbar actions to selected grid slots ───────────────────────────
+  // We patch the toolbar button logic: if gridActive + selectMode, use grid selection
+  const refBtn      = document.getElementById("toolRef");
+  const fullBtn     = document.getElementById("toolFullscreen");
+  const cropBtn     = document.getElementById("toolCrop");
+  const copyBtn     = document.getElementById("toolCopy");
+  const downloadBtn = document.getElementById("toolDownload");
+  const lightbox    = document.getElementById("lightbox");
+  const lightboxImg = document.getElementById("lightboxImg");
+
+  function getSlotSrc(slot) {
+    const img = slot.querySelector("img");
+    return img ? img.src : null;
+  }
+
+  // Download all selected
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", () => {
+      if (!gridActive || !selectMode) return;
+      selectedSlots().forEach((slot, i) => {
+        const src = getSlotSrc(slot); if (!src) return;
+        const a = document.createElement("a");
+        a.href = src; a.download = `photo81-${i + 1}.png`;
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+    }, true); // capture so it runs before the default handler
+  }
+
+  // Add reference: first selected slot
+  if (refBtn) {
+    refBtn.addEventListener("click", () => {
+      if (!gridActive || !selectMode) return;
+      const sel = selectedSlots(); if (!sel.length) return;
+      const src = getSlotSrc(sel[0]); if (!src) return;
+      if (typeof addPhoto === "function") addPhoto(src);
+    }, true);
+  }
+
+  // Fullscreen: show first selected in lightbox
+  if (fullBtn) {
+    fullBtn.addEventListener("click", () => {
+      if (!gridActive || !selectMode) return;
+      const sel = selectedSlots(); if (!sel.length) return;
+      const src = getSlotSrc(sel[0]); if (!src || !lightbox || !lightboxImg) return;
+      lightboxImg.src = src;
+      lightbox.classList.add("open");
+    }, true);
+  }
+
+  // Copy: first selected slot
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      if (!gridActive || !selectMode) return;
+      const sel = selectedSlots(); if (!sel.length) return;
+      const src = getSlotSrc(sel[0]); if (!src) return;
+      const original = copyBtn.getAttribute("data-tooltip");
+      try {
+        const blob = await (await fetch(src)).blob();
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+          copyBtn.setAttribute("data-tooltip", "Copied!");
+        }
+      } catch (_) { copyBtn.setAttribute("data-tooltip", "Copy failed"); }
+      setTimeout(() => copyBtn.setAttribute("data-tooltip", original), 1500);
+    }, true);
+  }
+
+  // Crop: only 1 selected — put it in the main canvas and activate crop
+  if (cropBtn) {
+    cropBtn.addEventListener("click", () => {
+      if (!gridActive || !selectMode) return;
+      const sel = selectedSlots(); if (sel.length !== 1) return;
+      const src = getSlotSrc(sel[0]); if (!src) return;
+      const canvas = document.getElementById("canvas");
+      // Exit grid mode, load into main canvas, then crop
+      gridActive = false;
+      toolGrid.classList.remove("active");
+      exitSelectMode();
+      canvasGrid.hidden = true;
+      if (canvasImg) { canvasImg.src = src; canvasImg.hidden = false; }
+      if (canvasEmpty) canvasEmpty.hidden = true;
+      if (canvas) canvas.classList.add("cropping");
+      if (typeof setCanvasToolsEnabled === "function") setCanvasToolsEnabled(true);
+    }, true);
+  }
+})();

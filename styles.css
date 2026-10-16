@@ -1476,6 +1476,7 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   display: grid;
   place-items: center;
+  container-type: size;
 }
 .canvas-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted-2); }
 .canvas-empty[hidden] { display: none; }
@@ -2459,3 +2460,100 @@ a { color: inherit; text-decoration: none; }
 
 /* ee-panes wrapper inside the scroll area */
 .ee-panes { display: flex; flex-direction: column; }
+
+/* ======================= CANVAS GRID (4-slot view) ======================= */
+.canvas-grid {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Square: height drives the size, width caps it so it never overflows */
+  height: 100%;
+  width: 100%;
+  max-width: min(100%, 100cqh);
+  max-height: min(100%, 100cqw);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  z-index: 2;
+  container-type: size;
+}
+.canvas-grid[hidden] { display: none; }
+
+.grid-slot {
+  position: relative;
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.grid-slot:hover { border-color: var(--purple); background: var(--panel-3); }
+.grid-slot.filled { border-style: solid; border-color: var(--border); }
+.grid-slot.selected { border-color: var(--purple); box-shadow: inset 0 0 0 2px var(--purple); }
+
+.grid-slot-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-2);
+  pointer-events: none;
+  user-select: none;
+}
+.grid-slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Active state for the grid toolbar button */
+.ctool.active {
+  background: var(--panel-3);
+  color: var(--purple-2);
+  border-color: rgba(124,92,255,.4);
+}
+
+/* ======================= GRID SELECT MODE ======================= */
+.canvas-grid.select-mode .grid-slot.filled {
+  cursor: pointer;
+}
+.canvas-grid.select-mode .grid-slot.filled:hover {
+  box-shadow: inset 0 0 0 2px var(--purple-2);
+}
+.canvas-grid.select-mode .grid-slot.selected {
+  box-shadow: inset 0 0 0 2px var(--purple);
+}
+
+/* Checkmark badge on selected slots */
+.grid-slot-check {
+  position: absolute;
+  top: 8px; left: 8px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--purple);
+  display: grid; place-items: center;
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+  z-index: 3;
+}
+.grid-slot-check svg { width: 12px; height: 12px; color: #fff; }
+.canvas-grid.select-mode .grid-slot.selected .grid-slot-check { opacity: 1; }
+
+/* Select tool active state */
+#toolSelect.active {
+  background: var(--panel-3);
+  color: var(--purple-2);
+  border-color: rgba(124,92,255,.4);
+}
