@@ -1424,3 +1424,193 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHisto
     }, true);
   }
 })();
+
+// ========================= INPAINT / OUTPAINT PAGE =========================
+(function () {
+  const modeTabs     = document.getElementById("ipModeTabs");
+  if (!modeTabs) return; // not on this page
+
+  const inpaintOpts  = document.getElementById("inpaintOptions");
+  const outpaintOpts = document.getElementById("outpaintOptions");
+  const resDd        = document.getElementById("ipResolutionDd");
+  const promptInput  = document.getElementById("ipPromptInput");
+  const promptPills  = document.getElementById("ipPromptPills");
+  const canvasEmptyText = document.getElementById("canvasEmptyText");
+
+  // ── Mode tab switching ──────────────────────────────────────────────────
+  let currentMode = "inpaint";
+
+  modeTabs.querySelectorAll(".cp-mode-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      modeTabs.querySelectorAll(".cp-mode-tab").forEach(t => {
+        t.classList.remove("active");
+        t.setAttribute("aria-selected", "false");
+      });
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      currentMode = tab.dataset.mode;
+
+      const isInpaint = currentMode === "inpaint";
+      inpaintOpts.hidden  = !isInpaint;
+      outpaintOpts.hidden = isInpaint;
+      if (resDd) resDd.hidden = !isInpaint;
+      if (promptInput) promptInput.hidden = !isInpaint;
+      if (promptPills)  promptPills.hidden = !isInpaint;
+      if (canvasEmptyText) {
+        canvasEmptyText.textContent = isInpaint
+          ? "Upload an image to begin the inpainting process"
+          : "Upload an image to begin the outpainting process";
+      }
+    });
+  });
+
+  // ── Source image drop zone ──────────────────────────────────────────────
+  const sourceZone = document.getElementById("ipSource");
+  if (sourceZone) {
+    const fileInput = sourceZone.querySelector(".fs-input");
+    const canvasImg   = document.getElementById("canvasImage");
+    const canvasEmpty = document.getElementById("canvasEmpty");
+
+    function loadSourceImage(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const url = URL.createObjectURL(file);
+      if (canvasImg) { canvasImg.src = url; canvasImg.hidden = false; }
+      if (canvasEmpty) canvasEmpty.hidden = true;
+      // Show a preview inside the drop zone
+      sourceZone.style.backgroundImage = `url(${url})`;
+      sourceZone.style.backgroundSize = "cover";
+      sourceZone.style.backgroundPosition = "center";
+      const prompt = sourceZone.querySelector(".fs-drop-prompt");
+      if (prompt) prompt.style.display = "none";
+    }
+
+    sourceZone.addEventListener("click", () => {
+      if (typeof openUploadModal === "function") {
+        openUploadModal("ipSource");
+      } else if (fileInput) {
+        fileInput.click();
+      }
+    });
+    sourceZone.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sourceZone.click(); }
+    });
+    sourceZone.addEventListener("dragover", e => { e.preventDefault(); sourceZone.classList.add("drag"); });
+    sourceZone.addEventListener("dragleave", () => sourceZone.classList.remove("drag"));
+    sourceZone.addEventListener("drop", e => {
+      e.preventDefault();
+      sourceZone.classList.remove("drag");
+      const file = e.dataTransfer.files[0];
+      loadSourceImage(file);
+    });
+    if (fileInput) {
+      fileInput.addEventListener("change", () => loadSourceImage(fileInput.files[0]));
+    }
+  }
+
+  // ── Brush / Erase toggle ────────────────────────────────────────────────
+  const brushBtn = document.getElementById("ipBrushBtn");
+  const eraseBtn = document.getElementById("ipEraseBtn");
+  if (brushBtn && eraseBtn) {
+    [brushBtn, eraseBtn].forEach(btn => {
+      btn.addEventListener("click", () => {
+        brushBtn.classList.toggle("active", btn === brushBtn);
+        eraseBtn.classList.toggle("active", btn === eraseBtn);
+      });
+    });
+  }
+
+  // ── Size slider ─────────────────────────────────────────────────────────
+  const sizeSlider = document.getElementById("ipSizeSlider");
+  const sizeMinus  = document.getElementById("ipSizeMinus");
+  const sizePlus   = document.getElementById("ipSizePlus");
+
+  function updateSliderFill(slider) {
+    const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+    slider.style.setProperty("--fill", pct + "%");
+  }
+
+  if (sizeSlider) {
+    updateSliderFill(sizeSlider);
+    sizeSlider.addEventListener("input", () => updateSliderFill(sizeSlider));
+  }
+  if (sizeMinus && sizeSlider) {
+    sizeMinus.addEventListener("click", () => {
+      sizeSlider.value = Math.max(+sizeSlider.min, +sizeSlider.value - 5);
+      updateSliderFill(sizeSlider);
+    });
+  }
+  if (sizePlus && sizeSlider) {
+    sizePlus.addEventListener("click", () => {
+      sizeSlider.value = Math.min(+sizeSlider.max, +sizeSlider.value + 5);
+      updateSliderFill(sizeSlider);
+    });
+  }
+
+  // ── Undo / Clear / Redo (stubs) ─────────────────────────────────────────
+  const undoBtn  = document.getElementById("ipUndoBtn");
+  const clearBtn = document.getElementById("ipClearBtn");
+  const redoBtn  = document.getElementById("ipRedoBtn");
+  if (undoBtn)  undoBtn.addEventListener("click",  () => { /* canvas undo */ });
+  if (clearBtn) clearBtn.addEventListener("click", () => { /* clear mask  */ });
+  if (redoBtn)  redoBtn.addEventListener("click",  () => { /* canvas redo */ });
+
+
+  // ── Outpaint direction spinners ─────────────────────────────────────────
+  document.querySelectorAll(".op-dir-input").forEach(wrap => {
+    const input = wrap.querySelector("input[type='number']");
+    const [upBtn, downBtn] = wrap.querySelectorAll(".op-spin button");
+    if (!input) return;
+    if (upBtn)   upBtn.addEventListener("click",   () => { input.value = Math.min(700, +input.value + 10); });
+    if (downBtn) downBtn.addEventListener("click", () => { input.value = Math.max(0,   +input.value - 10); });
+  });
+
+  // ── Reset button ────────────────────────────────────────────────────────
+  const resetBtn   = document.getElementById("ipResetBtn");
+  const resetModal = document.getElementById("resetModal");
+  const resetCancel  = document.getElementById("resetCancel");
+  const resetConfirm = document.getElementById("resetConfirm");
+
+  if (resetBtn && resetModal) {
+    resetBtn.addEventListener("click", () => resetModal.classList.add("open"));
+    if (resetCancel)  resetCancel.addEventListener("click",  () => resetModal.classList.remove("open"));
+    if (resetConfirm) resetConfirm.addEventListener("click", () => {
+      resetModal.classList.remove("open");
+      // Reset source zone
+      if (sourceZone) {
+        sourceZone.style.backgroundImage = "";
+        const prompt = sourceZone.querySelector(".fs-drop-prompt");
+        if (prompt) prompt.style.display = "";
+      }
+      // Reset canvas
+      const canvasImg   = document.getElementById("canvasImage");
+      const canvasEmpty = document.getElementById("canvasEmpty");
+      if (canvasImg) { canvasImg.src = ""; canvasImg.hidden = true; }
+      if (canvasEmpty) canvasEmpty.hidden = false;
+      // Reset prompt
+      if (promptInput) promptInput.value = "";
+      // Reset mode to Inpaint
+      modeTabs.querySelectorAll(".cp-mode-tab").forEach((t, i) => {
+        t.classList.toggle("active", i === 0);
+        t.setAttribute("aria-selected", i === 0 ? "true" : "false");
+      });
+      currentMode = "inpaint";
+      inpaintOpts.hidden  = false;
+      outpaintOpts.hidden = true;
+      if (resDd) resDd.hidden = false;
+      if (promptInput) promptInput.hidden = false;
+      if (promptPills)  promptPills.hidden = false;
+      if (canvasEmptyText) canvasEmptyText.textContent = "Upload an image to begin the inpainting process";
+      // Reset outpaint inputs
+      document.querySelectorAll(".op-dir-input input").forEach(i => { i.value = 0; });
+      // Reset size slider
+      if (sizeSlider) { sizeSlider.value = 30; updateSliderFill(sizeSlider); }
+    });
+  }
+
+  // Close reset modal on overlay click
+  if (resetModal) {
+    resetModal.addEventListener("click", e => {
+      if (e.target === resetModal) resetModal.classList.remove("open");
+    });
+  }
+})();
