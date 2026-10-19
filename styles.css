@@ -1404,12 +1404,15 @@ a { color: inherit; text-decoration: none; }
 .upload-slots {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 12px;
-  padding-right: 2px;
+  margin-right: -16px;
+  padding-right: 16px;
+  scrollbar-gutter: stable;
   position: relative;
   z-index: 1;
   scrollbar-width: thin;
@@ -2190,11 +2193,15 @@ a { color: inherit; text-decoration: none; }
 .fs-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-right: 2px;
+  /* extend into panel's right padding so scrollbar sits at the panel border */
+  margin-right: -16px;
+  padding-right: 16px;
+  scrollbar-gutter: stable;
   position: relative;
   z-index: 1;
   scrollbar-width: thin;
@@ -2516,17 +2523,22 @@ a { color: inherit; text-decoration: none; }
   position: relative;
   background: var(--panel-2);
   border: 1px dashed var(--border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-lg);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   cursor: pointer;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, background .15s, outline .12s;
 }
 .grid-slot:hover { border-color: var(--purple); background: var(--panel-3); }
-.grid-slot.filled { border-style: solid; border-color: var(--border); }
-.grid-slot.selected { border-color: var(--purple); box-shadow: inset 0 0 0 2px var(--purple); }
+.grid-slot.filled { border-style: solid; border-color: transparent; }
+.grid-slot.selected {
+  border-color: transparent;
+  /* outline follows border-radius and escapes overflow:hidden */
+  outline: 2.5px solid var(--purple);
+  outline-offset: 3px;
+}
 
 .grid-slot-label {
   font-size: 11px;
@@ -2541,6 +2553,7 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: var(--r-lg);
 }
 
 /* Active state for the grid toolbar button */
@@ -2554,28 +2567,55 @@ a { color: inherit; text-decoration: none; }
 .canvas-grid.select-mode .grid-slot.filled {
   cursor: pointer;
 }
-.canvas-grid.select-mode .grid-slot.filled:hover {
-  box-shadow: inset 0 0 0 2px var(--purple-2);
+/* Hover in select mode: preview outline */
+.canvas-grid.select-mode .grid-slot.filled:not(.selected):hover {
+  outline: none;
 }
-.canvas-grid.select-mode .grid-slot.selected {
-  box-shadow: inset 0 0 0 2px var(--purple);
+/* Selected: no outline border */
+.canvas-grid.select-mode .grid-slot.filled.selected {
+  outline: none;
+  box-shadow: none;
+}
+.canvas-grid.select-mode .grid-slot.filled.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(124,92,255,.14);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
 }
 
-/* Checkmark badge on selected slots */
+/* Checkbox badge on grid slots (rounded square, not a circle) */
 .grid-slot-check {
   position: absolute;
-  top: 8px; left: 8px;
+  top: 10px; left: 10px;
   width: 22px; height: 22px;
-  border-radius: 50%;
-  background: var(--purple);
+  border-radius: 6px;
+  background: rgba(10,13,26,.45);
+  border: 2px solid rgba(255,255,255,.65);
+  backdrop-filter: blur(4px);
   display: grid; place-items: center;
   opacity: 0;
-  transition: opacity .15s;
+  transform: scale(.75);
+  transition: opacity .15s, transform .15s, background .15s, border-color .15s;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
 }
-.grid-slot-check svg { width: 12px; height: 12px; color: #fff; }
-.canvas-grid.select-mode .grid-slot.selected .grid-slot-check { opacity: 1; }
+.grid-slot-check svg { width: 12px; height: 12px; color: #fff; opacity: 0; transition: opacity .1s; }
+
+/* Show empty checkbox on all filled slots in select mode */
+.canvas-grid.select-mode .grid-slot.filled .grid-slot-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Selected: fill checkbox and reveal checkmark */
+.canvas-grid.select-mode .grid-slot.filled.selected .grid-slot-check {
+  background: var(--purple);
+  border-color: var(--purple);
+}
+.canvas-grid.select-mode .grid-slot.filled.selected .grid-slot-check svg { opacity: 1; }
 
 /* Select tool active state */
 #toolSelect.active {
@@ -2583,6 +2623,41 @@ a { color: inherit; text-decoration: none; }
   color: var(--purple-2);
   border-color: rgba(124,92,255,.4);
 }
+
+/* ── Single-image selection bounding box ── */
+.canvas-sel-frame {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px dashed rgba(124,92,255,.65);
+  border-radius: 12px;
+  z-index: 4;
+  animation: sel-fade-in .15s ease;
+}
+.canvas-sel-frame[hidden] { display: none; }
+
+@keyframes sel-fade-in {
+  from { opacity: 0; transform: scale(.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* L-shaped corner handles */
+.sel-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+}
+.sel-tl { top: -2px; left: -2px;
+  border-top: 3px solid var(--purple); border-left: 3px solid var(--purple);
+  border-radius: 4px 0 0 0; }
+.sel-tr { top: -2px; right: -2px;
+  border-top: 3px solid var(--purple); border-right: 3px solid var(--purple);
+  border-radius: 0 4px 0 0; }
+.sel-bl { bottom: -2px; left: -2px;
+  border-bottom: 3px solid var(--purple); border-left: 3px solid var(--purple);
+  border-radius: 0 0 0 4px; }
+.sel-br { bottom: -2px; right: -2px;
+  border-bottom: 3px solid var(--purple); border-right: 3px solid var(--purple);
+  border-radius: 0 0 4px 0; }
 
 /* ========================= INPAINT / OUTPAINT PAGE ========================= */
 
@@ -2595,7 +2670,9 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-right: 2px;
+  margin-right: -16px;
+  padding-right: 16px;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--panel-3) transparent;
 }
@@ -2740,3 +2817,158 @@ a { color: inherit; text-decoration: none; }
 }
 .op-spin button:first-child { border-bottom: 1px solid var(--border); }
 .op-spin button:hover { background: var(--panel-3); color: var(--text); }
+
+/* ========================= UPSCALE PAGE ========================= */
+
+/* Fixed image input block (sits above the scroll, never scrolls away) */
+.us-image-input {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+/* Scrollable settings column */
+.us-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-right: -16px;
+  padding-right: 16px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-3) transparent;
+}
+.us-scroll::-webkit-scrollbar { width: 6px; }
+.us-scroll::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 10px; }
+
+/* Multiplier toggle buttons (1.5× / 2×) */
+.us-multiplier { display: flex; gap: 8px; }
+.us-mult-btn {
+  flex: 1;
+  height: 36px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.us-mult-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.us-mult-btn.active {
+  border-color: var(--purple);
+  color: var(--purple-2);
+  background: rgba(124,92,255,.1);
+}
+
+/* Method description text */
+.us-method-desc {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* Method selector buttons (Upscaler Style / Ultra Upscale Style) */
+.us-method-list { display: flex; flex-direction: column; gap: 8px; }
+.us-method-btn {
+  width: 100%;
+  height: 38px;
+  padding: 0 14px;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.us-method-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.us-method-btn.active {
+  border-color: var(--purple);
+  color: var(--text);
+  background: rgba(124,92,255,.08);
+}
+.us-optional { color: var(--muted-2); font-size: 12px; font-weight: 400; }
+
+/* Style options list (General, Cinematic, etc.) */
+.us-style-list { display: flex; flex-direction: column; gap: 8px; }
+.us-style-btn {
+  width: 100%;
+  height: 38px;
+  padding: 0 14px;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.us-style-btn:hover { color: var(--text); border-color: var(--border-hover); }
+.us-style-btn.active {
+  border-color: var(--purple);
+  color: var(--text);
+  background: rgba(124,92,255,.08);
+}
+#usUltraOptions[hidden] { display: none; }
+
+/* ======================= BACKGROUND EDIT PAGE ======================= */
+.bg-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-right: -16px;
+  padding-right: 16px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-3) transparent;
+}
+.bg-scroll::-webkit-scrollbar { width: 6px; }
+.bg-scroll::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 10px; }
+
+/* Three-tab variant: allow text wrapping so labels stay readable */
+.cp-mode-tabs--triple .cp-mode-tab {
+  height: auto;
+  min-height: 30px;
+  padding: 5px 4px;
+  line-height: 1.3;
+  text-align: center;
+  font-size: 11px;
+  white-space: normal;
+}
+
+/* Description text under the mode tabs */
+.bg-mode-desc {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.55;
+  padding: 2px 0;
+  margin: 0;
+}
+
+/* Ensure [hidden] works on elements whose CSS sets display:flex */
+#bgUploadPane[hidden],
+#bgRemovePane[hidden],
+#bgPromptPane[hidden],
+#bgPromptPills[hidden] {
+  display: none;
+}

@@ -1614,3 +1614,282 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeHisto
     });
   }
 })();
+
+// ========================= UPSCALE PAGE =========================
+(function () {
+  const sourceZone = document.getElementById("usSource");
+  if (!sourceZone) return; // not on this page
+
+  // ── Source image upload ──────────────────────────────────────────────────
+  const fileInput   = sourceZone.querySelector(".fs-input");
+  const canvasImg   = document.getElementById("canvasImage");
+  const canvasEmpty = document.getElementById("canvasEmpty");
+
+  function loadImage(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const url = URL.createObjectURL(file);
+    if (canvasImg)   { canvasImg.src = url; canvasImg.hidden = false; }
+    if (canvasEmpty) canvasEmpty.hidden = true;
+    sourceZone.style.backgroundImage = `url(${url})`;
+    sourceZone.style.backgroundSize  = "cover";
+    sourceZone.style.backgroundPosition = "center";
+    const prompt = sourceZone.querySelector(".fs-drop-prompt");
+    if (prompt) prompt.style.display = "none";
+  }
+
+  sourceZone.addEventListener("click", () => {
+    if (typeof openUploadModal === "function") openUploadModal("usSource");
+    else if (fileInput) fileInput.click();
+  });
+  sourceZone.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sourceZone.click(); } });
+  sourceZone.addEventListener("dragover", e => { e.preventDefault(); sourceZone.classList.add("drag"); });
+  sourceZone.addEventListener("dragleave", () => sourceZone.classList.remove("drag"));
+  sourceZone.addEventListener("drop", e => { e.preventDefault(); sourceZone.classList.remove("drag"); loadImage(e.dataTransfer.files[0]); });
+  if (fileInput) fileInput.addEventListener("change", () => loadImage(fileInput.files[0]));
+
+  // ── Multiplier buttons ───────────────────────────────────────────────────
+  document.querySelectorAll(".us-mult-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".us-mult-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+
+  // ── Method selector ──────────────────────────────────────────────────────
+  const styleOpts = document.getElementById("usStyleOptions");
+  const ultraOpts = document.getElementById("usUltraOptions");
+
+  document.querySelectorAll(".us-method-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".us-method-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const isUltra = btn.dataset.method === "ultra";
+      if (styleOpts) styleOpts.hidden = isUltra;
+      if (ultraOpts) ultraOpts.hidden = !isUltra;
+    });
+  });
+
+  // ── Style option single-select ───────────────────────────────────────────
+  document.querySelectorAll(".us-style-list").forEach(list => {
+    list.querySelectorAll(".us-style-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        list.querySelectorAll(".us-style-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+  });
+
+  // ── Reset ────────────────────────────────────────────────────────────────
+  const resetBtn     = document.getElementById("usResetBtn");
+  const resetModal   = document.getElementById("resetModal");
+  const resetCancel  = document.getElementById("resetCancel");
+  const resetConfirm = document.getElementById("resetConfirm");
+
+  if (resetBtn && resetModal) {
+    resetBtn.addEventListener("click", () => resetModal.classList.add("open"));
+    if (resetCancel)  resetCancel.addEventListener("click",  () => resetModal.classList.remove("open"));
+    if (resetConfirm) resetConfirm.addEventListener("click", () => {
+      resetModal.classList.remove("open");
+      sourceZone.style.backgroundImage = "";
+      const prompt = sourceZone.querySelector(".fs-drop-prompt");
+      if (prompt) prompt.style.display = "";
+      if (canvasImg)   { canvasImg.src = ""; canvasImg.hidden = true; }
+      if (canvasEmpty) canvasEmpty.hidden = false;
+      // Reset multiplier
+      document.querySelectorAll(".us-mult-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      // Reset method to Upscaler Style
+      document.querySelectorAll(".us-method-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      if (styleOpts) styleOpts.hidden = false;
+      if (ultraOpts) ultraOpts.hidden = true;
+      // Reset style selections
+      document.querySelectorAll(".us-style-list").forEach(list => {
+        list.querySelectorAll(".us-style-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      });
+    });
+    if (resetModal) resetModal.addEventListener("click", e => { if (e.target === resetModal) resetModal.classList.remove("open"); });
+  }
+})();
+
+// ======================= BACKGROUND EDIT PAGE =======================
+(() => {
+  const bgModeTabs = document.getElementById("bgModeTabs");
+  if (!bgModeTabs) return;
+
+  const bgPromptPane  = document.getElementById("bgPromptPane");
+  const bgUploadPane  = document.getElementById("bgUploadPane");
+  const bgRemovePane  = document.getElementById("bgRemovePane");
+  const bgPromptInput = document.getElementById("bgPromptInput");
+  const bgPromptPills = document.getElementById("bgPromptPills");
+  const bgModelValue  = document.getElementById("bgModelValue");
+
+  const modeCfg = {
+    prompt: { pane: bgPromptPane, showPrompt: true,  model: "Auto"    },
+    upload: { pane: bgUploadPane, showPrompt: false, model: "Auto"    },
+    remove: { pane: bgRemovePane, showPrompt: false, model: "Cira AI" },
+  };
+
+  function switchMode(mode) {
+    const cfg = modeCfg[mode];
+    Object.values(modeCfg).forEach(m => { if (m.pane) m.pane.hidden = true; });
+    if (cfg.pane) cfg.pane.hidden = false;
+    if (bgModelValue) bgModelValue.textContent = cfg.model;
+    if (bgPromptInput) bgPromptInput.hidden = !cfg.showPrompt;
+    if (bgPromptPills) bgPromptPills.hidden = !cfg.showPrompt;
+  }
+
+  bgModeTabs.querySelectorAll(".cp-mode-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      bgModeTabs.querySelectorAll(".cp-mode-tab").forEach(t => {
+        t.classList.remove("active");
+        t.setAttribute("aria-selected", "false");
+      });
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      switchMode(tab.dataset.mode);
+    });
+  });
+
+  // Initialize to prompt mode
+  switchMode("prompt");
+
+  // Generic drop-zone wirer
+  function wireDrop(el, onFile) {
+    if (!el) return;
+    const input = el.querySelector(".fs-input");
+
+    function applyFile(file) {
+      if (!file || !file.type.startsWith("image/")) return;
+      const src = URL.createObjectURL(file);
+      const prompt = el.querySelector(".fs-drop-prompt");
+      if (prompt) prompt.style.display = "none";
+      let img = el.querySelector(".fs-preview");
+      if (!img) { img = document.createElement("img"); img.className = "fs-preview"; img.alt = ""; el.appendChild(img); }
+      img.src = src;
+      el.classList.add("filled");
+      if (typeof onFile === "function") onFile(src);
+    }
+
+    el.addEventListener("click", () => { if (input) input.click(); });
+    if (input) input.addEventListener("change", e => { if (e.target.files[0]) applyFile(e.target.files[0]); });
+    el.addEventListener("dragover",  e => { e.preventDefault(); el.classList.add("drag"); });
+    el.addEventListener("dragleave", () => el.classList.remove("drag"));
+    el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("drag"); applyFile(e.dataTransfer.files[0]); });
+  }
+
+  wireDrop(document.getElementById("bgSource"));
+  wireDrop(document.getElementById("bgReference"));
+
+  // Toggle buttons
+  ["bgAutoImport", "bgTransparent"].forEach(id => {
+    const t = document.getElementById(id);
+    if (t) t.addEventListener("click", () => t.classList.toggle("on"));
+  });
+
+  // Reset
+  const resetBtn    = document.getElementById("bgResetBtn");
+  const resetModal  = document.getElementById("resetModal");
+  const resetCancel = document.getElementById("resetCancel");
+  const resetConfirm = document.getElementById("resetConfirm");
+
+  function clearDrop(el) {
+    if (!el) return;
+    const img   = el.querySelector(".fs-preview");
+    const rm    = el.querySelector(".fs-remove");
+    const prmt  = el.querySelector(".fs-drop-prompt");
+    const fi    = el.querySelector(".fs-input");
+    if (img)  img.remove();
+    if (rm)   rm.remove();
+    if (prmt) prmt.style.display = "";
+    if (fi)   fi.value = "";
+    el.classList.remove("filled");
+  }
+
+  if (resetBtn && resetModal) {
+    resetBtn.addEventListener("click",   () => resetModal.classList.add("open"));
+    resetCancel  && resetCancel.addEventListener("click",  () => resetModal.classList.remove("open"));
+    resetModal.addEventListener("click", e => { if (e.target === resetModal) resetModal.classList.remove("open"); });
+    resetConfirm && resetConfirm.addEventListener("click", () => {
+      resetModal.classList.remove("open");
+      clearDrop(document.getElementById("bgSource"));
+      clearDrop(document.getElementById("bgReference"));
+      bgModeTabs.querySelectorAll(".cp-mode-tab").forEach((t, i) => {
+        t.classList.toggle("active", i === 0);
+        t.setAttribute("aria-selected", i === 0 ? "true" : "false");
+      });
+      switchMode("prompt");
+      if (bgPromptInput) bgPromptInput.value = "";
+      const auto = document.getElementById("bgAutoImport");
+      const trans = document.getElementById("bgTransparent");
+      if (auto)  auto.classList.add("on");
+      if (trans) trans.classList.add("on");
+    });
+  }
+})();
+
+// ======================= SINGLE-IMAGE SELECT MODE =======================
+(() => {
+  const toolSelect  = document.getElementById("toolSelect");
+  const canvasEl    = document.getElementById("canvas");
+  const canvasImage = document.getElementById("canvasImage");
+  const canvasGrid  = document.getElementById("canvasGrid");
+  if (!toolSelect || !canvasEl) return;
+
+  // Build the selection frame and inject it into the canvas
+  const frame = document.createElement("div");
+  frame.className = "canvas-sel-frame";
+  frame.hidden = true;
+  frame.innerHTML =
+    '<span class="sel-corner sel-tl"></span>' +
+    '<span class="sel-corner sel-tr"></span>' +
+    '<span class="sel-corner sel-bl"></span>' +
+    '<span class="sel-corner sel-br"></span>';
+  canvasEl.appendChild(frame);
+
+  let selActive = false;
+
+  const inGridMode = () => canvasGrid && !canvasGrid.hidden;
+  const hasImage   = () => canvasImage && !canvasImage.hidden && canvasImage.getAttribute("src");
+
+  function positionFrame() {
+    if (!hasImage()) return;
+    const ir = canvasImage.getBoundingClientRect();
+    const cr = canvasEl.getBoundingClientRect();
+    frame.style.left   = (ir.left - cr.left) + "px";
+    frame.style.top    = (ir.top  - cr.top)  + "px";
+    frame.style.width  = ir.width  + "px";
+    frame.style.height = ir.height + "px";
+  }
+
+  function showSel() {
+    selActive = true;
+    toolSelect.classList.add("active");
+    positionFrame();
+    // re-trigger animation by toggling hidden
+    frame.hidden = false;
+  }
+
+  function hideSel() {
+    selActive = false;
+    toolSelect.classList.remove("active");
+    frame.hidden = true;
+  }
+
+  // Click handler: only act in single-image mode
+  toolSelect.addEventListener("click", () => {
+    if (inGridMode()) return;           // grid IIFE handles grid mode
+    if (!hasImage()) return;
+    if (selActive) hideSel(); else showSel();
+  });
+
+  // Reposition frame when window resizes
+  window.addEventListener("resize", () => {
+    if (selActive && !inGridMode()) positionFrame();
+  });
+
+  // Hide frame when the displayed image changes
+  const _origShow = window.showInCanvas;
+  window.showInCanvas = function(src) {
+    hideSel();
+    if (typeof _origShow === "function") _origShow(src);
+  };
+})();
